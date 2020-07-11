@@ -1,0 +1,42 @@
+version: 2.1
+
+orbs:
+ slack: circleci/slack@3.4.2
+
+jobs:
+  build:
+    docker:
+      - image: oursky/flutter:v1.12.13-hotfix.5
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run:
+          name: flutter setting
+          command: |
+            flutter pub get
+            flutter pub global activate junitreport
+            mkdir -p ./test-reports/ 2>/dev/null
+      - run:
+          name: Test
+          command: |
+            export PATH="$PATH":"/flutter/.pub-cache/bin"
+            flutter test --machine | tojunit --output ./test-reports/TEST-results.xml
+      - store_artifacts:
+          when: always
+          path: test-reports
+          destination: test-reports
+      - store_test_results:
+          path: test-reports
+      - slack/status:
+          success_message: ':circleci-pass: $CIRCLE_BRANCH のビルドが完了しました\n:github_octocat: User：$CIRCLE_USERNAME'
+          failure_message: ':circleci-fail: $CIRCLE_BRANCH のビルドが失敗しました\n:github_octocat: User：$CIRCLE_USERNAME'
+          webhook: '${SLACK_WEBHOOK}'
+          
+workflows:
+  version: 2
+  build-deploy:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: develop
